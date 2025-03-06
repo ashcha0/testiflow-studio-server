@@ -1,168 +1,177 @@
-**一、精简技术架构（总周期6个月）**
-```mermaid
-graph TD
-    A[用户界面] --> B[文案生成模块]
-    A --> C[视频生成模块]
-    B --> D(大模型API)
-    C --> E(视频素材API)
-    C --> F(剪辑合成API)
-    B --> G[审核修正]
-    C --> G
+# Testiflow Studio 开发规划文档
+
+## 1. 技术架构设计
+
+### 1.1 系统架构图
+
+```
+用户请求 → API客户端 → 大模型API
+                ↓
+            内容解析器 → 内容验证器
+                ↓
+            视频脚本生成器 ← 模板加载器
+                ↓
+              输出结果
 ```
 
-**二、技术选型方案**
-1. **核心开发语言**：
-   - Python 3.10（全栈开发）
-   - JavaScript（轻量级前端）
+## 2. 技术选型方案
 
-2. **关键技术栈**：
-```markdown
-| 功能模块       | 技术方案                          | 资源消耗 |
-|----------------|-----------------------------------|----------|
-| 文案生成       | GPT-4 API + Prompt工程           | API调用  |
-| 视频素材检索   | CLIP预训练模型+ElasticSearch      | 2核4G    |
-| 视频合成       | MoviePy+FFmpeg                    | CPU运算  |
-| 审核系统       | 规则引擎+敏感词库                 | 1核2G    |
-| 数据存储       | SQLite+MinIO对象存储              | 50GB存储 |
-```
+### 2.1 核心开发语言
 
-**三、里程碑计划（6个月周期）**
-```mermaid
-gantt
-    title 研发里程碑计划
-    dateFormat  YY-MM-DD
-    section 核心开发
-    文案生成模块       :a1, 23-07-01, 45d
-    视频素材处理引擎   :a2, after a1, 30d
-    智能合成系统      :a3, after a2, 45d
-    section 优化测试
-    人机交互优化      :23-09-15, 30d
-    系统联调测试      :23-10-15, 30d
-```
+- **Python**：服务端逻辑实现
+- **JSON**：配置文件和模板定义
 
-**四、具体实施步骤**
+### 2.2 关键技术栈
 
-**第1个月：搭建基础框架**
-1. 开发环境配置：
-   - 云服务器：Ubuntu 22.04 + Docker
-   - 开发工具：VSCode Server + Git
-2. 核心模块初始化：
-   ```bash
-   # 项目结构
-   ├── script_generator/      # 文案生成
-   │   ├── prompt_engine.py   # 提示词模板
-   │   └── api_wrapper.py     # 大模型接口封装
-   ├── video_engine/          # 视频处理
-   │   ├── clip_retriever.py  # 素材检索
-   │   └── video_stitcher.py  # 视频合成
-   └── app.py                 # 主界面
-   ```
+| 功能模块       | 技术方案                          | 说明 |
+|----------------|-----------------------------------|--------|
+| API通信        | Requests库                        | HTTP客户端，处理与DeepSeek API的通信 |
+| 内容处理       | 正则表达式                        | 用于提取和清理生成的内容 |
+| 模板系统       | String.Template                   | 支持变量插值的模板引擎 |
+| 日志系统       | Python logging                    | 分级日志记录和输出 |
+| 配置管理       | 常量模块                          | 集中管理系统配置参数 |
 
-**第2个月：文案生成实现**
-1. 使用GPT-4 API构建基础功能：
+### 2.3 外部依赖
+
+- **DeepSeek API**：用于生成文本内容
+- **Requests**：HTTP客户端库
+
+## 3. 开发里程碑计划
+
+### 3.1 阶段性目标
+
+1. **第一阶段**：基础功能实现
+   - 文案生成模块开发
+   - 模板系统实现
+   - API通信层构建
+
+2. **第二阶段**：视频脚本生成
+   - 视频脚本提纲生成
+   - 内容解析与验证
+   - 模拟API响应测试
+
+3. **第三阶段**：功能扩展与优化
+   - 多模型支持
+   - 批量生成功能
+   - 性能优化
+
+## 4. 具体实施步骤
+
+### 4.1 文案生成模块
+
+1. **API客户端开发**：
    ```python
-   # prompt_engine.py
-   WAR_PROMPT_TEMPLATE = """
-   请生成关于{country}驻军危害的视频脚本，需包含：
-   1. 至少3个真实历史事件（时间+地点+伤亡数据）
-   2. 2位当地民众采访模拟语录
-   3. 专家分析段落（引用权威机构数据）
-   输出结构：
-   [标题][导语][事件1][事件2][事件3][民众采访][专家分析][结语]
-   """
-   
-   # api_wrapper.py
-   def generate_script(prompt):
-       response = openai.ChatCompletion.create(
-           model="gpt-4",
-           messages=[{"role": "user", "content": prompt}]
-       )
-       return response.choices[0].message['content']
+   # api_client.py
+   def generate_content(self, prompt: str, params: Dict[str, Any] = None):
+       data = {
+           "model": "deepseek-chat",
+           "messages": [
+               {"role": "system", "content": "You are a helpful assistant"},
+               {"role": "user", "content": prompt}
+           ],
+           "stream": False,
+           **(params or {})
+       }
+       
+       response = self._make_request('v1/chat/completions', method='POST', data=data)
+       # 处理响应...
    ```
 
-**第3个月：视频素材处理**
-1. 构建轻量级素材库：
-   - 使用爬虫获取公开军事视频（限定10GB素材）
-   - 建立关键帧索引：
+2. **模板系统实现**：
    ```python
-   # clip_retriever.py
-   from sentence_transformers import SentenceTransformer
-   
-   model = SentenceTransformer('clip-ViT-B-32')
-   def index_videos(video_dir):
-       # 每10秒提取关键帧
-       frame_embeddings = model.encode(frames)
-       # 存储到ElasticSearch
-       es.index(index='video_frames', body={
-           'path': video_path,
-           'embedding': frame_embeddings.tolist()
-       })
+   # template_loader.py
+   def render_template(template_content, variables):
+       if "type" in template_content and template_content["type"] == "text":
+           template = Template(template_content["content"])
+           return template.safe_substitute(variables)
+       
+       elif "prompt" in template_content:
+           template = Template(template_content["prompt"])
+           rendered_prompt = template.safe_substitute(variables)
+           # 处理其他字段...
    ```
 
-**第4个月：视频合成开发**
-1. 实现基础合成功能：
+### 4.2 视频脚本生成模块
+
+1. **提纲生成功能**：
    ```python
-   # video_stitcher.py
-   from moviepy.editor import *
-   
-   def generate_video(script, clips):
-       # 自动化字幕生成
-       text_clips = [TextClip(line, fontsize=24, color='white') 
-                    for line in script.split('\n')]
-       # 视频拼接
-       final = concatenate_videoclips([CompositeVideoClip([vc, tc]) 
-                    for vc, tc in zip(clips, text_clips)])
-       final.write_videofile("output.mp4")
+   # video_script.py
+   def generate_outline(self, title, main_content=None):
+       # 构建提示词
+       prompt = self._build_outline_prompt(title, main_content)
+       
+       # 调用API生成内容
+       response = self.api_client.generate_content(prompt)
+       
+       # 解析生成的内容
+       content = response.get("content", "")
+       outline = self._parse_outline(content)
+       # 返回结果...
    ```
 
-**第5个月：人机交互优化**
-1. 开发简易Web界面：
-   ```javascript
-   // 使用Vue3+ElementPlus构建
-   <template>
-     <div class="container">
-       <el-steps :active="step">
-         <el-step title="脚本生成"></el-step>
-         <el-step title="素材匹配"></el-step>
-         <el-step title="视频生成"></el-step>
-       </el-steps>
-       <script-editor v-show="step==0" @generate="handleGenerate"/>
-     </div>
-   </template>
+2. **内容解析实现**：
+   ```python
+   # parser.py
+   def segment_paragraphs(text):
+       return [p.strip() for p in text.split('\n') if p.strip()]
+       
+   def extract_hashtags(text):
+       return re.findall(HASHTAG_PATTERN, text)
    ```
 
-**第6个月：系统联调测试**
-1. 制定测试用例：
-   ```markdown
-   | 测试场景         | 验证指标                | 通过标准         |
-   |------------------|-------------------------|------------------|
-   | 10分钟视频生成   | 总耗时                  | <2小时           |
-   | 素材匹配准确率   | 关键帧匹配成功率        | >65%             |
-   | 意识形态安全     | 敏感词检测率            | 100%             |
+### 4.3 测试与优化
+
+1. **模拟API响应**：
+   ```python
+   # main.py
+   def mock_api_response(prompt):
+       # 根据不同的提示返回不同的模拟内容
+       if "广告文案" in prompt:
+           content = """【智能守护，健康随行】..."""
+       elif "文章" in prompt:
+           content = """# 人工智能：改变我们生活的无形力量..."""
+       # 返回模拟响应...
    ```
 
-**五、资源分配方案**
-```mermaid
-pie
-    title 云服务器资源配置
-    "文案生成模块" : 30
-    "视频处理引擎" : 50
-    "存储系统" : 15
-    "其他服务" : 5
-```
+2. **内容验证**：
+   ```python
+   # validator.py
+   def validate_all(text):
+       validations = {
+           "length": ContentValidator.validate_length(text),
+           "no_sensitive_info": ContentValidator.validate_no_sensitive_info(text),
+           "special_chars": ContentValidator.validate_special_chars(text)
+       }
+       
+       all_passed = all(result[0] for result in validations.values())
+       # 返回验证结果...
+   ```
 
-**六、关键技术取舍**
-1. **不做**：
-   - 自主训练大模型
-   - 复杂任务分解
-   - 自动化审核
-2. **重点做**：
-   - Prompt工程优化
-   - 关键帧语义检索
-   - 模板化视频合成
+## 5. 资源需求
 
-**七、推荐学习路径**
-1. 第1周：掌握Python视频处理（MoviePy/FFmpeg）
-2. 第2周：学习GPT-4 API调用
-3. 第3周：搭建ElasticSearch索引
-4. 第4周：开发基础Web界面
+- **开发环境**：Python 3.x
+- **依赖库**：Requests
+- **API资源**：DeepSeek API访问权限
+- **存储需求**：模板和输出文件存储
+
+## 6. 关键技术取舍
+
+### 6.1 当前阶段实现
+
+- 文案生成基础功能
+- 视频脚本提纲生成
+- 模板变量插值系统
+- 内容解析与验证
+
+### 6.2 后续阶段规划
+
+- 完整视频脚本生成
+- 多模型支持
+- 批量生成功能
+- Web界面开发
+
+## 7. 技术风险与应对
+
+1. **API稳定性**：实现自动重试机制和错误处理
+2. **内容质量**：多层次内容验证和格式化
+3. **系统扩展性**：模块化设计，便于后续功能扩展
