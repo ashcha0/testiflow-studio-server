@@ -2,8 +2,12 @@ import logging
 import os
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from config.constants import LOGS_DIR, LOG_LEVEL, LOG_FORMAT
+
+# 获取项目根目录
+project_root = Path(__file__).parent.parent.parent
 
 def setup_logger(name: str, log_file: str = None) -> logging.Logger:
     """设置日志记录器
@@ -33,7 +37,8 @@ def setup_logger(name: str, log_file: str = None) -> logging.Logger:
     if log_file is None:
         log_file = f"{name}.log"
     
-    log_path = os.path.join(LOGS_DIR, log_file)
+    # 确保日志路径是基于项目根目录的绝对路径
+    log_path = os.path.join(project_root, LOGS_DIR, log_file)
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     
     file_handler = RotatingFileHandler(
