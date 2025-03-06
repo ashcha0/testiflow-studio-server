@@ -131,6 +131,34 @@ def generate_content(self, prompt: str, params: Dict[str, Any] = None) -> Dict[s
 - 提及（Mentions）提取
 - 内容分段处理
 
+核心代码示例：
+
+```python
+@staticmethod
+def clean_html_tags(text: str) -> str:
+    """清除HTML标签
+    
+    Args:
+        text: 输入文本
+        
+    Returns:
+        str: 清除HTML标签后的文本
+    """
+    return re.sub(HTML_TAG_PATTERN, '', text)
+
+@staticmethod
+def extract_hashtags(text: str) -> List[str]:
+    """提取文本中的话题标签
+    
+    Args:
+        text: 输入文本
+        
+    Returns:
+        List[str]: 提取的话题标签列表
+    """
+    return re.findall(HASHTAG_PATTERN, text)
+```
+
 #### 4.2.2 ContentValidator类
 
 验证生成内容的质量和合规性，主要功能：
