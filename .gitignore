@@ -7,3 +7,5 @@
 
 # Python 通用忽略规则
 *.pyc
+
+node_modules/
