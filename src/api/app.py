@@ -137,6 +137,41 @@ def generate_custom():
             'error': f'生成内容失败: {str(e)}'
         }), 500
 
+@app.route('/api/outline/save', methods=['POST'])
+def save_outline():
+    """保存视频脚本提纲"""
+    data = request.json
+    if not data or 'title' not in data or 'outline' not in data:
+        return jsonify({
+            'error': '缺少必要参数: title, outline'
+        }), 400
+    
+    title = data.get('title')
+    outline = data.get('outline')
+    
+    try:
+        # 确保输出目录存在
+        output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'outputs')
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 生成文件名
+        file_name = f"{title}_outline.json"
+        file_path = os.path.join(output_dir, file_name)
+        
+        # 保存提纲数据
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump({'title': title, 'outline': outline}, f, ensure_ascii=False, indent=2)
+        
+        return jsonify({
+            'message': '提纲保存成功',
+            'file_path': file_path
+        })
+    except Exception as e:
+        logger.error(f"保存提纲失败: {str(e)}")
+        return jsonify({
+            'error': f'保存提纲失败: {str(e)}'
+        }), 500
+
 def create_app():
     """创建并返回Flask应用实例"""
     return app
