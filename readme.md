@@ -151,6 +151,9 @@ python -m pytest tests/
 
 # 使用模拟API测试
 python run.py --mock
+
+# 运行集成测试
+python main.py --video-script --title "人工智能入门指南" --content "介绍AI基础知识和应用场景"
 ```
 
 ## 7. 部署说明
