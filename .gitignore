@@ -9,3 +9,6 @@
 *.pyc
 
 node_modules/
+
+# 忽略 data/outputs 文件夹及其所有内容
+data/outputs/
