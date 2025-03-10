@@ -98,6 +98,54 @@ def generate_script():
             'error': f'生成脚本失败: {str(e)}'
         }), 500
 
+@app.route('/api/generate/script/<path:outline_id>', methods=['POST'])
+def generate_script_by_id(outline_id):
+    """根据提纲ID生成完整视频脚本"""
+    try:
+        # 检查提纲文件是否存在
+        if not os.path.exists(outline_id):
+            # 尝试在outputs目录中查找
+            output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'outputs')
+            potential_path = os.path.join(output_dir, os.path.basename(outline_id))
+            if os.path.exists(potential_path):
+                outline_id = potential_path
+            else:
+                return jsonify({
+                    'error': f'提纲文件不存在: {outline_id}'
+                }), 404
+        
+        # 读取提纲文件
+        with open(outline_id, 'r', encoding='utf-8') as f:
+            outline_data = json.load(f)
+        
+        # 获取标题和提纲
+        title = outline_data.get('title')
+        outline = outline_data.get('outline')
+        
+        if not title or not outline:
+            return jsonify({
+                'error': '提纲文件格式错误，缺少必要字段: title, outline'
+            }), 400
+        
+        # 获取可选参数
+        data = request.json or {}
+        style = data.get('style', '专业')
+        tone = data.get('tone', '简洁')
+        audience = data.get('audience', '通用')
+        
+        # 生成脚本
+        script = video_script_generator.generate_script(title, outline, style, tone, audience)
+        
+        # 添加ID字段，用于前端跳转
+        script['id'] = os.path.basename(outline_id).replace('_outline.json', '')
+        
+        return jsonify(script)
+    except Exception as e:
+        logger.error(f"根据ID生成脚本失败: {str(e)}")
+        return jsonify({
+            'error': f'生成脚本失败: {str(e)}'
+        }), 500
+
 @app.route('/api/generate/custom', methods=['POST'])
 def generate_custom():
     """使用自定义模板生成内容"""
@@ -136,6 +184,39 @@ def generate_custom():
         logger.error(f"生成内容失败: {str(e)}")
         return jsonify({
             'error': f'生成内容失败: {str(e)}'
+        }), 500
+
+@app.route('/api/generate/section', methods=['POST'])
+def generate_section_content():
+    """生成章节内容"""
+    data = request.json
+    if not data or 'title' not in data:
+        return jsonify({
+            'error': '缺少必要参数: title'
+        }), 400
+    
+    title = data.get('title')
+    
+    try:
+        # 构建提示词
+        prompt = f"请为标题为《{title}》的视频章节生成详细的内容。内容应该清晰、有条理，并且包含相关的要点和细节。"
+        prompt += "\n\n生成的内容应该是一段连贯的文字，不需要包含标题，直接从正文内容开始。"
+        
+        # 调用API生成内容
+        logger.info(f"正在为章节《{title}》生成内容...")
+        response = api_client.generate_content(prompt)
+        
+        # 解析生成的内容
+        content = response.get("content", "")
+        if not content:
+            logger.error("生成章节内容失败，API返回内容为空")
+            return jsonify({"error": "生成章节内容失败，请重试"}), 500
+        
+        return jsonify({"content": content})
+    except Exception as e:
+        logger.error(f"生成章节内容失败: {str(e)}")
+        return jsonify({
+            'error': f'生成章节内容失败: {str(e)}'
         }), 500
 
 @app.route('/api/outline/save', methods=['POST'])
