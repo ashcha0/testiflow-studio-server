@@ -12,6 +12,7 @@ from src.utils.template_loader import TemplateLoader
 from src.script_generator.api_client import APIClient
 from src.script_generator.parser import ContentParser
 from src.script_generator.validator import ContentValidator
+from src.script_generator.video_script import VideoScriptGenerator
 from config.constants import API_BASE_URL
 
 # 设置日志
@@ -201,14 +202,144 @@ def create_sample_templates():
     
     logger.info("示例模板已创建")
 
+def generate_video_script_outline(title, main_content=None):
+    """生成视频脚本提纲
+    
+    Args:
+        title: 视频标题
+        main_content: 主要内容描述（可选）
+    """
+    logger.info(f"开始生成视频脚本提纲: {title}")
+    
+    # 初始化API客户端
+    api_client = APIClient(API_BASE_URL)
+    
+    # 初始化视频脚本生成器
+    script_generator = VideoScriptGenerator(api_client)
+    
+    # 生成提纲
+    try:
+        if os.getenv("USE_MOCK") == "true":
+            # 使用模拟响应
+            outline = mock_video_script_outline(title, main_content)
+        else:
+            # 实际调用API生成提纲
+            outline = script_generator.generate_outline(title, main_content)
+        
+        # 输出提纲
+        logger.info(f"视频《{title}》提纲生成成功")
+        logger.info("提纲结构:")
+        
+        for i, section in enumerate(outline.get("sections", [])):
+            logger.info(f"章节 {i+1}: {section['title']}")
+            logger.info(f"描述: {section['description']}")
+            logger.info("---")
+        
+        # 保存提纲
+        output_dir = os.path.join(project_root, "data", "outputs")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 使用标题作为文件名（去除特殊字符）
+        safe_title = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '_')
+        output_file = os.path.join(output_dir, f"{safe_title}_outline.json")
+        
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(outline, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"提纲已保存到: {output_file}")
+        return outline
+        
+    except Exception as e:
+        logger.error(f"生成视频脚本提纲出错: {str(e)}")
+        import traceback
+        logger.debug(traceback.format_exc())
+        return {"error": str(e)}
+
+def mock_video_script_outline(title, main_content=None):
+    """模拟视频脚本提纲生成，用于测试"""
+    logger.info(f"模拟生成视频脚本提纲: {title}")
+    
+    # 根据标题生成不同的模拟提纲
+    if "人工智能" in title:
+        sections = [
+            {
+                "title": "1. 人工智能的基本概念",
+                "description": "- 人工智能的定义和历史\n- 弱人工智能vs强人工智能\n- 当前AI技术的发展阶段"
+            },
+            {
+                "title": "2. 人工智能的核心技术",
+                "description": "- 机器学习和深度学习\n- 神经网络的工作原理\n- 大语言模型的发展"
+            },
+            {
+                "title": "3. AI在各行业的应用",
+                "description": "- 医疗健康领域的AI应用\n- 金融行业的AI解决方案\n- 教育和创意领域的AI工具"
+            },
+            {
+                "title": "4. 人工智能的未来展望",
+                "description": "- 技术发展趋势\n- 可能面临的挑战\n- AI与人类社会的共存"
+            }
+        ]
+    elif "教程" in title or "指南" in title:
+        sections = [
+            {
+                "title": "1. 入门准备",
+                "description": "- 所需工具和环境\n- 基础知识要求\n- 学习路径规划"
+            },
+            {
+                "title": "2. 核心概念讲解",
+                "description": "- 关键术语解释\n- 基本原理分析\n- 常见问题解答"
+            },
+            {
+                "title": "3. 实战演示",
+                "description": "- 案例分析\n- 步骤详解\n- 技巧和注意事项"
+            },
+            {
+                "title": "4. 进阶技巧",
+                "description": "- 高级功能介绍\n- 优化方法\n- 扩展应用场景"
+            }
+        ]
+    else:
+        sections = [
+            {
+                "title": "1. 引言",
+                "description": "- 主题背景介绍\n- 视频内容概述\n- 为什么这个主题很重要"
+            },
+            {
+                "title": "2. 主要内容第一部分",
+                "description": "- 核心要点1\n- 核心要点2\n- 相关案例分析"
+            },
+            {
+                "title": "3. 主要内容第二部分",
+                "description": "- 进阶概念讲解\n- 实际应用示例\n- 常见误区分析"
+            },
+            {
+                "title": "4. 总结与展望",
+                "description": "- 内容要点回顾\n- 实践建议\n- 未来发展趋势"
+            }
+        ]
+    
+    # 返回模拟的提纲结构
+    return {
+        "title": title,
+        "sections": sections,
+        "raw_content": "这是模拟生成的原始内容"
+    }
+
 if __name__ == "__main__":
     import json
     import argparse
+    import re
     
     parser = argparse.ArgumentParser(description="Testiflow Studio - 文案生成工具")
     parser.add_argument("--create-templates", action="store_true", help="创建示例模板")
     parser.add_argument("--api-key", type=str, help="设置API密钥")
     parser.add_argument("--mock", action="store_true", help="使用模拟API响应进行测试")
+    
+    # 添加视频脚本相关参数
+    parser.add_argument("--video-script", action="store_true", help="生成视频脚本提纲")
+    parser.add_argument("--title", type=str, help="视频标题")
+    parser.add_argument("--content", type=str, help="视频主要内容描述")
+    
     args = parser.parse_args()
     
     if args.create_templates:
@@ -224,4 +355,11 @@ if __name__ == "__main__":
         os.environ["USE_MOCK"] = "true"
         logger.info("已启用模拟API模式")
     
-    main()
+    # 处理视频脚本生成
+    if args.video_script:
+        if not args.title:
+            logger.error("生成视频脚本需要提供标题，请使用 --title 参数")
+        else:
+            generate_video_script_outline(args.title, args.content)
+    else:
+        main()
