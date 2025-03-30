@@ -222,36 +222,52 @@ def generate_section_content():
 @app.route('/api/outline/save', methods=['POST'])
 def save_outline():
     """保存视频脚本提纲"""
+    from src.database.operations import OutlineOperations
+    from src.database.models import Outline, OutlineSection
+    from datetime import datetime
+    
     data = request.json
     if not data or 'title' not in data or 'outline' not in data:
+        logger.error("保存提纲失败: 缺少必要参数 title 或 outline")
         return jsonify({
             'error': '缺少必要参数: title, outline'
         }), 400
     
     title = data.get('title')
-    outline = data.get('outline')
+    outline_sections = data.get('outline')
     
     try:
-        # 确保输出目录存在
-        output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'outputs')
-        os.makedirs(output_dir, exist_ok=True)
+        # 创建Outline对象
+        current_time = datetime.now()
+        outline = Outline(
+            title=title,
+            sections=[OutlineSection(
+                title=section['title'],
+                content=section.get('content', '')
+            ) for section in outline_sections],
+            created_at=current_time,
+            updated_at=current_time
+        )
         
-        # 生成文件名
-        file_name = f"{title}_outline.json"
-        file_path = os.path.join(output_dir, file_name)
+        logger.info(f"开始保存提纲: {title}")
         
-        # 保存提纲数据
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump({'title': title, 'outline': outline}, f, ensure_ascii=False, indent=2)
+        # 保存到数据库
+        outline_id = OutlineOperations.create_outline(outline)
         
+        if not outline_id:
+            logger.error("保存提纲失败: 数据库操作返回空ID")
+            raise Exception('数据库操作失败')
+            
+        logger.info(f"提纲保存成功, ID: {outline_id}")
         return jsonify({
             'message': '提纲保存成功',
-            'file_path': file_path
+            'outline_id': outline_id
         })
     except Exception as e:
-        logger.error(f"保存提纲失败: {str(e)}")
+        logger.error(f"保存提纲失败: {str(e)}", exc_info=True)
         return jsonify({
-            'error': f'保存提纲失败: {str(e)}'
+            'error': f'保存提纲失败: {str(e)}',
+            'details': '请检查数据库连接或联系管理员'
         }), 500
 
 def create_app():
