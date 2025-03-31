@@ -2,17 +2,18 @@
 
 ## 1. 项目概述
 
-Testiflow Studio Server 是一个基于Python的内容生成服务端，提供文案创作和视频脚本生成的API服务。项目采用模块化设计，集成大模型API，提供高性能、可扩展的内容生成服务。
+Testiflow Studio Server 是一个基于Python的内容生成服务端，提供文案创作和视频脚本生成的API服务。项目采用模块化设计，集成大模型API，提供高性能、可扩展的内容生成服务。支持视频脚本提纲生成、完整脚本生成以及数据持久化功能。
 
 ## 2. 技术架构
 
 ### 2.1 核心技术栈
 
 - **开发语言**: Python 3.8+
-- **Web框架**: FastAPI
+- **Web框架**: Flask
 - **API集成**: DeepSeek API
 - **模板引擎**: Python string.Template
 - **日志框架**: Python logging
+- **数据库**: SQLite/MySQL
 
 ### 2.2 系统架构
 
@@ -45,11 +46,11 @@ pip install -r requirements.txt
 ```
 
 主要依赖包：
-- fastapi==0.68.0
-- uvicorn==0.15.0
+- flask==2.0.1
+- flask-cors==3.0.10
 - python-dotenv==0.19.0
 - requests==2.26.0
-- pydantic==1.8.2
+- sqlalchemy==1.4.23
 
 ## 4. 快速开始
 
@@ -69,7 +70,7 @@ DEEPSEEK_API_KEY=your_api_key_here
 
 1. 开发环境启动：
 ```bash
-python run.py --dev
+python run.py
 ```
 
 2. 生产环境启动：
@@ -77,26 +78,144 @@ python run.py --dev
 python run.py --prod
 ```
 
-服务默认运行在 http://localhost:8000
+服务默认运行在 http://localhost:5000
 
 ## 5. API接口文档
 
-### 5.1 视频脚本生成
+### 5.1 健康检查
 
 ```http
-POST /api/v1/video-script
+GET /api/health
+```
+
+**响应示例**：
+```json
+{
+    "status": "ok",
+    "message": "Testiflow Studio API服务正常运行"
+}
+```
+
+### 5.2 模板管理
+
+#### 5.2.1 获取所有模板
+
+```http
+GET /api/templates
+```
+
+**响应示例**：
+```json
+{
+    "templates": [
+        {
+            "name": "ad_copy",
+            "description": "广告文案模板"
+        }
+    ]
+}
+```
+
+#### 5.2.2 获取指定模板
+
+```http
+GET /api/templates/{template_name}
+```
+
+**响应示例**：
+```json
+{
+    "template": {
+        "prompt": "模板内容",
+        "model": "deepseek-chat",
+        "temperature": 0.7
+    }
+}
+```
+
+### 5.3 视频脚本生成
+
+#### 5.3.1 生成视频脚本提纲
+
+```http
+POST /api/generate/outline
 Content-Type: application/json
 
 {
     "title": "视频标题",
-    "content": "视频内容描述"
+    "main_content": "视频主要内容描述（可选）"
 }
 ```
 
-### 5.2 文案生成
+**响应示例**：
+```json
+{
+    "title": "视频标题",
+    "outline": [
+        {
+            "title": "第一部分标题",
+            "content": "部分内容描述"
+        },
+        {
+            "title": "第二部分标题",
+            "content": "部分内容描述"
+        }
+    ]
+}
+```
+
+#### 5.3.2 生成完整视频脚本
 
 ```http
-POST /api/v1/content
+POST /api/generate/script
+Content-Type: application/json
+
+{
+    "title": "视频标题",
+    "outline": [
+        {
+            "title": "第一部分标题",
+            "content": "部分内容描述"
+        }
+    ],
+    "style": "专业",  // 可选，默认为"专业"
+    "tone": "简洁",   // 可选，默认为"简洁"
+    "audience": "通用" // 可选，默认为"通用"
+}
+```
+
+**响应示例**：
+```json
+{
+    "title": "视频标题",
+    "script": [
+        {
+            "section": "第一部分标题",
+            "content": "详细脚本内容..."
+        }
+    ]
+}
+```
+
+#### 5.3.3 根据提纲ID生成脚本
+
+```http
+POST /api/generate/script/{outline_id}
+Content-Type: application/json
+
+{
+    "style": "专业",  // 可选
+    "tone": "简洁",   // 可选
+    "audience": "通用" // 可选
+}
+```
+
+### 5.4 内容生成
+
+#### 5.4.1 使用自定义模板生成内容
+
+```http
+POST /api/generate/custom
 Content-Type: application/json
 
 {
@@ -109,13 +228,71 @@ Content-Type: application/json
 }
 ```
 
-### 5.3 模板管理
+#### 5.4.2 生成章节内容
 
 ```http
-GET /api/v1/templates           # 获取模板列表
-POST /api/v1/templates          # 创建新模板
-GET /api/v1/templates/{name}    # 获取指定模板
-DELETE /api/v1/templates/{name} # 删除模板
+POST /api/generate/section
+Content-Type: application/json
+
+{
+    "title": "章节标题"
+}
+```
+
+**响应示例**：
+```json
+{
+    "content": "生成的章节详细内容..."
+}
+```
+
+### 5.5 数据操作
+
+#### 5.5.1 保存提纲
+
+```http
+POST /api/outline/save
+Content-Type: application/json
+
+{
+    "title": "提纲标题",
+    "outline": [
+        {
+            "title": "章节标题",
+            "content": "章节内容"
+        }
+    ]
+}
+```
+
+**响应示例**：
+```json
+{
+    "message": "提纲保存成功",
+    "outline_id": "12345"
+}
+```
+
+#### 5.5.2 获取数据列表
+
+```http
+GET /api/data/list?page=1&size=10
+```
+
+**响应示例**：
+```json
+{
+    "data": [
+        {
+            "id": "12345",
+            "title": "提纲标题",
+            "created_at": "2023-01-01T12:00:00"
+        }
+    ],
+    "total": 100,
+    "page": 1,
+    "size": 10
+}
 ```
 
 ## 6. 开发指南
