@@ -133,18 +133,97 @@ class VideoScriptGenerator:
         
         return {"sections": sections}
     
-    def generate_full_script(self, outline: Dict[str, Any]) -> Dict[str, Any]:
-        """根据提纲生成完整脚本
+    def generate_script(self, title: str, outline: Dict[str, Any], style: str = '专业', tone: str = '简洁', audience: str = '通用') -> Dict[str, Any]:
+        """根据提纲生成完整视频脚本
         
         Args:
+            title: 视频标题
             outline: 提纲结构
+            style: 风格(专业/轻松/幽默等)
+            tone: 语气(简洁/详细/正式等)
+            audience: 目标受众
             
         Returns:
             Dict: 完整脚本内容
         """
-        # 这里可以实现根据提纲生成完整脚本的功能
-        # 暂时返回一个占位结果
-        return {"message": "完整脚本生成功能将在后续版本中实现"}
+        # 构建提示词
+        prompt = self._build_script_prompt(title, outline, style, tone, audience)
+        
+        # 调用API生成内容
+        logger.info(f"正在为视频《{title}》生成完整脚本...")
+        response = self.api_client.generate_content(prompt)
+        
+        # 解析生成的内容
+        content = response.get("content", "")
+        if not content:
+            logger.error("生成脚本失败，API返回内容为空")
+            return {"error": "生成脚本失败，请重试"}
+        
+        # 解析脚本结构
+        script = self._parse_script(content)
+        script["title"] = title
+        script["raw_content"] = content
+        
+        return script
+    
+    def _build_script_prompt(self, title: str, outline: Dict[str, Any], style: str, tone: str, audience: str) -> str:
+        """构建生成完整脚本的提示词
+        
+        Args:
+            title: 视频标题
+            outline: 提纲结构
+            style: 风格
+            tone: 语气
+            audience: 目标受众
+            
+        Returns:
+            str: 构建好的提示词
+        """
+        prompt = f"请根据以下提纲为标题为《{title}》的视频生成完整的脚本内容。\n\n"
+        prompt += f"视频风格: {style}\n"
+        prompt += f"语气: {tone}\n"
+        prompt += f"目标受众: {audience}\n\n"
+        
+        # 添加提纲内容
+        prompt += "视频提纲:\n"
+        for section in outline.get("sections", []):
+            prompt += f"{section.get('title', '')}\n"
+            prompt += f"{section.get('description', '')}\n\n"
+        
+        prompt += "\n请生成完整的脚本内容，包括开场白、每个章节的详细内容、转场和结束语。"
+        prompt += "每个章节的内容应该详细展开，使用适合目标受众的语言风格。"
+        
+        return prompt
+    
+    def _parse_script(self, content: str) -> Dict[str, Any]:
+        """解析生成的脚本内容
+        
+        Args:
+            content: 生成的原始内容
+            
+        Returns:
+            Dict: 解析后的脚本结构
+        """
+        # 清理内容
+        cleaned_content = ContentParser.clean_html_tags(content)
+        
+        # 分段处理
+        paragraphs = ContentParser.segment_paragraphs(cleaned_content)
+        
+        # 解析脚本结构
+        sections = []
+        current_section = None
+        
+        for line in paragraphs:
+            if line.strip() and not line.strip().startswith('#'):
+                if not current_section:
+                    current_section = {"content": []}
+                current_section["content"].append(line.strip())
+        
+        if current_section:
+            sections.append({"content": "\n".join(current_section["content"])})
+        
+        return {"sections": sections}
 
 # 添加必要的导入
 import re
