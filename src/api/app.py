@@ -282,28 +282,28 @@ def create_app():
     return app
 
 @app.route('/api/data/list', methods=['GET'])
-def get_data_list():
-    """获取数据列表"""
-    from src.database.operations import ScriptOperations
-    
-    try:
-        page = request.args.get('page', default=1, type=int)
-        size = request.args.get('size', default=10, type=int)
+def get_outline_list():
+        """获取数据列表"""
+        from src.database.operations import OutlineOperations
         
-        # 这里需要实现从testiflow_db获取数据的逻辑
-        # 由于operations.py中没有现成的方法，需要先添加
-        
-        return jsonify({
-            'data': [],
-            'total': 0,
-            'page': page,
-            'size': size
-        })
-    except Exception as e:
-        logger.error(f"获取数据列表失败: {str(e)}")
-        return jsonify({
-            'error': f'获取数据列表失败: {str(e)}'
-        }), 500
+        try:
+            page = request.args.get('page', default=1, type=int)
+            size = request.args.get('size', default=10, type=int)
+            
+            # 调用数据库操作方法获取数据
+            data = OutlineOperations.get_outline_list(page, size)
+            
+            return jsonify({
+                'data': data['data'],
+                'total': data['total'],
+                'page': page,
+                'size': size
+            })
+        except Exception as e:
+            logger.error(f"获取数据列表失败: {str(e)}")
+            return jsonify({
+                'error': f'获取数据列表失败: {str(e)}'
+            }), 500
 
 if __name__ == '__main__':
     # 仅在直接运行此文件时启动服务器
