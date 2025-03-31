@@ -305,6 +305,32 @@ def get_outline_list():
                 'error': f'获取数据列表失败: {str(e)}'
             }), 500
 
+@app.route('/api/outline/<outline_id>', methods=['GET'])
+def get_outline(outline_id):
+    """根据提纲ID获取提纲内容"""
+    from src.database.operations import OutlineOperations
+    
+    try:
+        outline = OutlineOperations.get_outline_by_id(outline_id)
+        if not outline:
+            return jsonify({
+                'error': f'获取提纲失败: 提纲ID {outline_id} 不存在'
+            }), 404
+            
+        return jsonify({
+            'title': outline.title,
+            'outline': [{
+                'title': section.title,
+                'content': section.content
+            } for section in outline.sections],
+            'created_at': outline.created_at
+        })
+    except Exception as e:
+        logger.error(f"获取提纲失败: {str(e)}")
+        return jsonify({
+            'error': f'获取提纲失败: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     # 仅在直接运行此文件时启动服务器
     app.run(debug=True, host='0.0.0.0', port=5000)

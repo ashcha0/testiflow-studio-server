@@ -59,7 +59,7 @@ class OutlineOperations:
                 conn.close()
     
     @staticmethod
-    def get_outline(outline_id: str) -> Optional[Outline]:
+    def get_outline_by_id(outline_id: str) -> Optional[Outline]:
         """
         获取提纲详情
         :param outline_id: 提纲ID
