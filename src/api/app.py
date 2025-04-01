@@ -242,12 +242,14 @@ def save_outline():
     
     title = data.get('title')
     outline_sections = data.get('outline')
+    outline_id = data.get('id')  # 获取提纲ID，如果存在则更新，否则创建新记录
     
     try:
         # 创建Outline对象
         current_time = datetime.now()
         outline = Outline(
             title=title,
+            outline_id=outline_id,  # 设置提纲ID
             sections=[OutlineSection(
                 title=section['title'],
                 content=section.get('content', '')
@@ -258,18 +260,32 @@ def save_outline():
         
         logger.info(f"开始保存提纲: {title}")
         
-        # 保存到数据库
-        outline_id = OutlineOperations.create_outline(outline)
-        
-        if not outline_id:
-            logger.error("保存提纲失败: 数据库操作返回空ID")
-            raise Exception('数据库操作失败')
+        # 根据是否有outline_id决定创建新记录还是更新现有记录
+        if outline_id:
+            # 更新现有提纲
+            success = OutlineOperations.update_outline(outline)
+            if not success:
+                logger.error(f"更新提纲失败: 提纲ID {outline_id} 不存在或数据库操作失败")
+                raise Exception('更新提纲失败')
+                
+            logger.info(f"提纲更新成功, ID: {outline_id}")
+            return jsonify({
+                'message': '提纲更新成功',
+                'outline_id': outline_id
+            })
+        else:
+            # 创建新提纲
+            new_outline_id = OutlineOperations.create_outline(outline)
             
-        logger.info(f"提纲保存成功, ID: {outline_id}")
-        return jsonify({
-            'message': '提纲保存成功',
-            'outline_id': outline_id
-        })
+            if not new_outline_id:
+                logger.error("保存提纲失败: 数据库操作返回空ID")
+                raise Exception('数据库操作失败')
+                
+            logger.info(f"提纲保存成功, ID: {new_outline_id}")
+            return jsonify({
+                'message': '提纲保存成功',
+                'outline_id': new_outline_id
+            })
     except Exception as e:
         logger.error(f"保存提纲失败: {str(e)}", exc_info=True)
         return jsonify({
