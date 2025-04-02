@@ -75,48 +75,122 @@ def generate_outline():
         }), 500
 
 @app.route('/api/generate/script', methods=['POST'])
-@app.route('/api/generate/script/<int:script_id>', methods=['POST'])
-def generate_script(script_id=None):
-    """生成完整视频脚本"""
-    if not request.is_json or request.content_type != 'application/json':
-        return jsonify({
-            'error': '请求必须为JSON格式，且Content-Type为application/json',
-            'solution': '请在请求头中添加: Content-Type: application/json'
-        }), 415
+# @app.route('/api/generate/script/<int:script_id>', methods=['POST'])
+# def generate_script(script_id=None):
+#     """生成完整视频脚本"""
+#     if not request.is_json or request.content_type != 'application/json':
+#         return jsonify({
+#             'error': '请求必须为JSON格式，且Content-Type为application/json',
+#             'solution': '请在请求头中添加: Content-Type: application/json'
+#         }), 415
         
-    data = request.get_json()
-    if not data or 'title' not in data or 'outline' not in data:
-        return jsonify({
-            'error': '缺少必要参数: title, outline'
-        }), 400
+#     data = request.get_json()
+#     if not data or 'title' not in data or 'outline' not in data:
+#         return jsonify({
+#             'error': '缺少必要参数: title, outline'
+#         }), 400
     
-    title = data.get('title')
-    outline = data.get('outline')
-    style = data.get('style', '专业')
-    tone = data.get('tone', '简洁')
-    audience = data.get('audience', '通用')
+#     title = data.get('title')
+#     outline = data.get('outline')
+#     style = data.get('style', '专业')
+#     tone = data.get('tone', '简洁')
+#     audience = data.get('audience', '通用')
     
-    try:
-        script = video_script_generator.generate_script(title, outline, style, tone, audience)
-        return jsonify(script)
-    except Exception as e:
-        logger.error(f"生成脚本失败: {str(e)}")
-        return jsonify({
-            'error': f'生成脚本失败: {str(e)}'
-        }), 500
+#     try:
+#         script = video_script_generator.generate_script(title, outline, style, tone, audience)
+#         return jsonify(script)
+#     except Exception as e:
+#         logger.error(f"生成脚本失败: {str(e)}")
+#         return jsonify({
+#             'error': f'生成脚本失败: {str(e)}'
+#         }), 500
 
 @app.route('/api/generate/script/<path:outline_id>', methods=['POST'])
 def generate_script_by_id(outline_id):
     """根据提纲ID生成完整视频脚本"""
     try:
-        # 检查提纲文件是否存在
+        # 首先尝试从数据库获取提纲
+        from src.database.operations import OutlineOperations, ScriptOperations
+        from src.database.models import Script
+        from datetime import datetime
+        import uuid
+        
+        logger.info(f"开始处理请求，outline_id: {outline_id}")
+        data = request.json or {}
+        logger.info(f"请求参数: {data}")
+        
+        # 检查outline_id是否为数字（数据库ID）
+        if outline_id.isdigit():
+            # 从数据库获取提纲
+            outline_obj = OutlineOperations.get_outline_by_id(outline_id)
+            if outline_obj:
+                logger.info(f"成功获取提纲数据，标题: {outline_obj.title}")
+                # 构建提纲数据
+                title = outline_obj.title
+                outline_sections = [{
+                    'title': section.title,
+                    'content': section.content
+                } for section in outline_obj.sections]
+                
+                # 获取可选参数
+                data = request.json or {}
+                style = data.get('style', '专业')
+                tone = data.get('tone', '简洁')
+                audience = data.get('audience', '通用')
+                
+                # 生成脚本
+                logger.info("开始生成脚本...")
+                # 将outline_sections包装在字典中，以符合generate_script方法的期望格式
+                outline_dict = {"sections": outline_sections}
+                script = video_script_generator.generate_script(title, outline_dict, style, tone, audience)
+                logger.info("脚本生成完成")
+                
+                # 添加ID字段，用于前端跳转
+                script['id'] = outline_id
+                
+                # 保存脚本到数据库
+                try:
+                    # 检查是否已存在该提纲的脚本
+                    existing_script = ScriptOperations.get_script_by_outline(outline_id)
+                    script_id = existing_script.script_id if existing_script else str(uuid.uuid4())
+                    
+                    # 将脚本内容转换为JSON字符串
+                    import json
+                    script_content = json.dumps(script, ensure_ascii=False)
+                    
+                    # 创建脚本对象
+                    script_obj = Script(
+                        script_id=script_id,
+                        outline_id=outline_id,
+                        content=script_content,
+                        created_at=datetime.now()
+                    )
+                    
+                    # 保存到数据库
+                    success = ScriptOperations.create_script(script_obj)
+                    if success:
+                        logger.info(f"脚本保存成功，ID: {script_id}")
+                    else:
+                        logger.warning(f"脚本保存失败")
+                except Exception as e:
+                    logger.error(f"保存脚本到数据库失败: {str(e)}")
+                
+                return jsonify(script)
+            else:
+                return jsonify({
+                    'error': f'提纲不存在: ID {outline_id}'
+                }), 404
+        
+        # 如果不是数字ID，则尝试作为文件路径处理（兼容旧版本）
         if not os.path.exists(outline_id):
             # 尝试在outputs目录中查找
             output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'outputs')
             potential_path = os.path.join(output_dir, os.path.basename(outline_id))
             if os.path.exists(potential_path):
+                logger.info(f"找到提纲文件: {potential_path}")
                 outline_id = potential_path
             else:
+                logger.error(f"提纲文件不存在: {outline_id}")
                 return jsonify({
                     'error': f'提纲文件不存在: {outline_id}'
                 }), 404
@@ -144,7 +218,39 @@ def generate_script_by_id(outline_id):
         script = video_script_generator.generate_script(title, outline, style, tone, audience)
         
         # 添加ID字段，用于前端跳转
-        script['id'] = os.path.basename(outline_id).replace('_outline.json', '')
+        file_id = os.path.basename(outline_id).replace('_outline.json', '')
+        script['id'] = file_id
+        
+        # 保存脚本到数据库
+        try:
+            from src.database.operations import ScriptOperations
+            from src.database.models import Script
+            from datetime import datetime
+            import uuid
+            
+            # 生成脚本ID
+            script_id = str(uuid.uuid4())
+            
+            # 将脚本内容转换为JSON字符串
+            import json
+            script_content = json.dumps(script, ensure_ascii=False)
+            
+            # 创建脚本对象
+            script_obj = Script(
+                script_id=script_id,
+                outline_id=file_id,  # 使用文件ID作为outline_id
+                content=script_content,
+                created_at=datetime.now()
+            )
+            
+            # 保存到数据库
+            success = ScriptOperations.create_script(script_obj)
+            if success:
+                logger.info(f"脚本保存成功，ID: {script_id}，提纲ID: {file_id}")
+            else:
+                logger.warning(f"脚本保存失败")
+        except Exception as e:
+            logger.error(f"保存脚本到数据库失败: {str(e)}")
         
         return jsonify(script)
     except Exception as e:
