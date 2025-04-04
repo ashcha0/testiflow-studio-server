@@ -354,3 +354,57 @@ class ScriptOperations:
         finally:
             if conn:
                 conn.close()
+                
+    @staticmethod
+    def get_script_list(page: int, size: int) -> dict:
+        """
+        获取脚本列表(分页)
+        :param page: 页码
+        :param size: 每页数量
+        :return: 包含数据和总数的字典
+        """
+        conn = None
+        try:
+            conn = db_config.get_connection()
+            if not conn:
+                return {'data': [], 'total': 0}
+                
+            cursor = conn.cursor(dictionary=True)
+            
+            # 计算偏移量
+            offset = (page - 1) * size
+            
+            # 查询总数
+            cursor.execute("SELECT COUNT(*) AS total FROM scripts")
+            total = cursor.fetchone()['total']
+            
+            # 查询分页数据
+            cursor.execute(
+                """
+                SELECT s.id, s.outline_id, s.created_at, o.title as outline_title 
+                FROM scripts s
+                LEFT JOIN outlines o ON s.outline_id = o.id
+                ORDER BY s.created_at DESC
+                LIMIT %s OFFSET %s
+                """,
+                (size, offset)
+            )
+            
+            data = cursor.fetchall()
+            
+            # 转换ID为字符串
+            for item in data:
+                item['id'] = str(item['id'])
+                item['outline_id'] = str(item['outline_id'])
+            
+            return {
+                'data': data,
+                'total': total
+            }
+            
+        except Error as e:
+            print(f"获取脚本列表失败: {e}")
+            return {'data': [], 'total': 0}
+        finally:
+            if conn:
+                conn.close()

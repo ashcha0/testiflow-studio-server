@@ -453,6 +453,30 @@ def get_outline(outline_id):
             'error': f'获取提纲失败: {str(e)}'
         }), 500
 
+@app.route('/api/script/list', methods=['GET'])
+def get_script_list():
+    """获取脚本列表"""
+    from src.database.operations import ScriptOperations
+    
+    try:
+        page = request.args.get('page', default=1, type=int)
+        size = request.args.get('size', default=10, type=int)
+        
+        # 调用数据库操作方法获取脚本列表
+        data = ScriptOperations.get_script_list(page, size)
+        
+        return jsonify({
+            'data': data['data'],
+            'total': data['total'],
+            'page': page,
+            'size': size
+        })
+    except Exception as e:
+        logger.error(f"获取脚本列表失败: {str(e)}")
+        return jsonify({
+            'error': f'获取脚本列表失败: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     # 仅在直接运行此文件时启动服务器
     app.run(debug=True, host='0.0.0.0', port=5000)
