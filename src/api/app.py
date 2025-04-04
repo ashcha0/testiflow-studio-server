@@ -477,6 +477,76 @@ def get_script_list():
             'error': f'获取脚本列表失败: {str(e)}'
         }), 500
 
+@app.route('/api/script/<script_id>', methods=['GET'])
+def get_script(script_id):
+    """根据脚本ID获取脚本内容"""
+    from src.database.operations import ScriptOperations
+    import json
+    
+    try:
+        script = ScriptOperations.get_script(script_id)
+        if not script:
+            return jsonify({
+                'error': f'获取脚本失败: 脚本ID {script_id} 不存在'
+            }), 404
+        
+        # 检查脚本内容是否为空
+        if not script.content or script.content.strip() == '':
+            logger.error(f"脚本内容为空: 脚本ID {script_id}")
+            return jsonify({
+                'error': f'脚本内容为空或格式不正确'
+            }), 500
+            
+        try:
+            # 将JSON字符串转换为Python对象
+            script_content = json.loads(script.content)
+        except json.JSONDecodeError as json_err:
+            logger.error(f"脚本内容JSON解析失败: {str(json_err)}")
+            return jsonify({
+                'error': f'脚本内容格式不正确，无法解析JSON: {str(json_err)}'
+            }), 500
+        
+        # 确保脚本内容符合预期的JSON格式
+        # 处理sections字段，确保它是一个包含content的数组
+        sections = script_content.get('sections', [])
+        if not isinstance(sections, list):
+            sections = []
+        
+        # 确保每个section都有content字段，并且处理好格式
+        processed_sections = []
+        for section in sections:
+            if not isinstance(section, dict):
+                processed_sections.append({"content": str(section)})
+            elif "content" not in section:
+                section_copy = section.copy()
+                section_copy["content"] = ""
+                processed_sections.append(section_copy)
+            else:
+                processed_sections.append(section)
+        
+        # 更新sections为处理后的数组
+        sections = processed_sections
+        
+        # 构建前端期望的数据结构
+        response_data = {
+            'outline_id': script.outline_id,
+            'title': script_content.get('title', ''),
+            'content': sections,
+            'created_at': script.created_at,
+            'updated_at': script.created_at  # 数据库模型中可能没有updated_at字段，暂用created_at
+        }
+
+        # 如果有raw_content字段，也包含在响应中
+        if 'raw_content' in script_content:
+            response_data['raw_content'] = script_content['raw_content']
+
+        return jsonify(response_data)
+    except Exception as e:
+        logger.error(f"获取脚本失败: {str(e)}")
+        return jsonify({
+            'error': f'获取脚本失败: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     # 仅在直接运行此文件时启动服务器
     app.run(debug=True, host='0.0.0.0', port=5000)
