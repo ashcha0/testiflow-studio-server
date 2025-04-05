@@ -484,11 +484,15 @@ def get_script(script_id):
     import json
     
     try:
+        # 首先尝试直接通过script_id获取脚本
         script = ScriptOperations.get_script(script_id)
         if not script:
-            return jsonify({
-                'error': f'获取脚本失败: 脚本ID {script_id} 不存在'
-            }), 404
+            # 如果找不到脚本，尝试将script_id作为outline_id查询
+            script = ScriptOperations.get_script_by_outline(script_id)
+            if not script:
+                return jsonify({
+                    'error': f'获取脚本失败: 脚本ID或提纲ID {script_id} 不存在'
+                }), 404
         
         # 检查脚本内容是否为空
         if not script.content or script.content.strip() == '':
