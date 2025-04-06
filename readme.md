@@ -99,6 +99,7 @@ pip install -r requirements.txt
 - python-dotenv>=0.19.0
 - requests>=2.25.1
 - sqlalchemy>=1.4.23
+- ffmpeg-python>=0.2.0
 
 ## 4. 快速开始
 
