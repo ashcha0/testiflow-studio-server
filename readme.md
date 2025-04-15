@@ -25,7 +25,7 @@ Testiflow Studio Server 是一个基于Python的内容生成服务端，提供�
 
 ### 2.1 核心技术栈
 
-- **开发语言**: Python 3.8+
+- **开发语言**: Python 3.13+
 - **Web框架**: Flask
 - **API集成**: DeepSeek API
 - **模板引擎**: Python string.Template
@@ -82,7 +82,7 @@ testiflow-studio-server/
 
 ### 3.1 运行环境
 
-- Python 3.8 或更高版本
+- Python 3.13 或更高版本
 - pip 包管理工具
 - 可选：MySQL数据库（默认使用SQLite）
 
