@@ -551,6 +551,71 @@ def get_script(script_id):
             'error': f'获取脚本失败: {str(e)}'
         }), 500
 
+@app.route('/api/script/save', methods=['POST'])
+def save_script():
+    """保存脚本内容"""
+    from src.database.operations import ScriptOperations
+    from src.database.models import Script
+    from datetime import datetime
+    import uuid
+    import json
+    
+    try:
+        data = request.json
+        if not data or 'content' not in data or 'title' not in data:
+            logger.error("保存脚本失败: 缺少必要参数 content 或 title")
+            return jsonify({
+                'error': '缺少必要参数: content, title'
+            }), 400
+        
+        content = data.get('content')
+        title = data.get('title')
+        outline_id = data.get('outline_id')
+        
+        # 检查是否已存在该提纲的脚本
+        existing_script = None
+        if outline_id:
+            existing_script = ScriptOperations.get_script_by_outline(outline_id)
+        
+        script_id = existing_script.script_id if existing_script else str(uuid.uuid4())
+        
+        # 构建脚本内容对象
+        script_content_obj = {
+            'title': title,
+            'content': content
+        }
+        
+        # 将脚本内容转换为JSON字符串
+        script_content = json.dumps(script_content_obj, ensure_ascii=False)
+        
+        # 创建脚本对象
+        script_obj = Script(
+            script_id=script_id,
+            outline_id=outline_id,
+            content=script_content,
+            created_at=datetime.now()
+        )
+        
+        # 保存到数据库
+        success = ScriptOperations.create_script(script_obj)
+        if success:
+            logger.info(f"脚本保存成功，ID: {script_id}")
+            return jsonify({
+                'message': '脚本保存成功',
+                'script_id': script_id
+            })
+        else:
+            logger.error("保存脚本失败: 数据库操作失败")
+            return jsonify({
+                'error': '保存脚本失败: 数据库操作失败'
+            }), 500
+    except Exception as e:
+        logger.error(f"保存脚本失败: {str(e)}", exc_info=True)
+        return jsonify({
+            'error': f'保存脚本失败: {str(e)}',
+            'details': '请检查数据库连接或联系管理员'
+        }), 500
+
 if __name__ == '__main__':
     # 仅在直接运行此文件时启动服务器
     app.run(debug=True, host='0.0.0.0', port=5000)
