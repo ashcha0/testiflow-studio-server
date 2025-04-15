@@ -521,6 +521,56 @@ GET /api/script/list?page=1&size=10
 
 根据脚本ID或提纲ID获取已保存的脚本内容。
 
+### 5.6 保存脚本
+
+将生成的脚本保存到数据库。
+
+#### 请求
+
+```http
+POST /api/script/save
+Content-Type: application/json
+
+{
+    "outline_id": "提纲ID",
+    "title": "脚本标题",
+    "content": [
+        {
+            "section": "章节标题",
+            "content": "章节内容"
+        }
+    ]
+}
+```
+
+**请求参数**：
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| outline_id | string | 是 | 关联的提纲ID |
+| title | string | 是 | 脚本标题 |
+| content | array | 是 | 脚本内容，包含章节标题和内容 |
+
+#### 响应
+
+**成功响应**：
+
+```json
+{
+    "message": "脚本保存成功",
+    "script_id": "12345"
+}
+```
+
+**错误响应**：
+
+```json
+{
+    "error": "保存脚本失败: {错误信息}",
+    "details": "请检查数据库连接或联系管理员"
+}
+```
+
 #### 请求
 
 ```http
